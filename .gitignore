@@ -1,0 +1,18 @@
+
+
+*.key
+*.crt
+*.env
+
+
+# Terraform
+*.tfstate
+*.tfstate.*
+crash.log
+.terraform/
+.terraform.lock.hcl
+*.tfvars
+
+# Ключи SSH
+*.pem
+key/

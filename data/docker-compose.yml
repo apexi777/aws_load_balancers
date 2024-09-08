@@ -1,0 +1,34 @@
+version: "3.8"
+
+services:
+  caddy:
+    image: caddy:latest
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - "./Caddyfile:/etc/caddy/Caddyfile"
+      - "./letsencrypt:/data"
+    restart: always
+    networks:
+      - webnet
+
+  frontend:
+    restart: always
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    labels:
+      - "caddy=http://frontend"
+    depends_on:
+      - caddy
+    networks:
+      - webnet
+
+volumes:
+  mysql_data:
+  app_data:
+
+networks:
+  webnet:
+    driver: bridge

@@ -1,0 +1,10 @@
+www.dev-practice.space, dev-practice.space {
+    reverse_proxy frontend:80
+    encode zstd gzip
+    tls apexi7771@gmail.com
+}
+
+:5000 {
+    reverse_proxy web:5000
+    encode zstd gzip
+}
