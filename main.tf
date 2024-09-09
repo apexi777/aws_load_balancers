@@ -1,4 +1,16 @@
 #----------------------------------------------------------
+# Automated Load Balancing and Auto Scaling for a React Application on AWS
+# This Terraform configuration will:
+#   - Provision an Application Load Balancer (ALB)
+#   - Configure a Target Group
+#   - Set Up a Launch Template
+#   - Implement an Auto Scaling Group (ASG)
+#   - Ensure Continuous Delivery
+#   - Scalability and High Availability
+#   - Security Considerations
+# This configuration provides a scalable and automated solution for deploying
+# application on AWS, utilizing Terraform to manage infrastructure, load balancing,  
+# and auto-scaling to handle varying levels of traffic efficiently.
 # Made by Babich Andrey
 #-----------------------------------------------------------
 
@@ -22,13 +34,13 @@ resource "aws_vpc" "main" {
 resource "aws_subnet" "subnet_yellow" {
   vpc_id            = aws_vpc.main.id
   cidr_block        = var.subnet_one
-  availability_zone = data.aws_availability_zones.working.names[0] 
+  availability_zone = data.aws_availability_zones.working.names[0]
 }
 
 resource "aws_subnet" "subnet_red" {
   vpc_id            = aws_vpc.main.id
   cidr_block        = var.subnet_two
-  availability_zone = data.aws_availability_zones.working.names[1] 
+  availability_zone = data.aws_availability_zones.working.names[1]
 }
 
 resource "aws_internet_gateway" "gateway" {
@@ -58,7 +70,7 @@ resource "aws_route_table_association" "subnet_red_association" {
 # Security
 #-----------------------------------------------------------
 
-resource "aws_security_group" "group_from_elb" {
+resource "aws_security_group" "elb_sg" {
   name   = "elb-security-group"
   vpc_id = aws_vpc.main.id
   tags = merge(var.common_tags, {
@@ -96,9 +108,9 @@ resource "aws_security_group" "group_from_elb" {
 #-----------------------------------------------------------
 resource "aws_lb" "application_lb" {
   name               = "app-elb"
-  // internal           = false
+  internal           = false
   load_balancer_type = "application"
-  security_groups    = [aws_security_group.group_from_elb.id]
+  security_groups    = [aws_security_group.elb_sg.id]
   subnets            = [aws_subnet.subnet_yellow.id, aws_subnet.subnet_red.id]
 
   tags = merge(var.common_tags, {
@@ -140,12 +152,25 @@ resource "aws_lb_listener" "app_listener" {
 # Launch Template
 #-----------------------------------------------------------
 
-resource "aws_launch_template" "web_app_template" {
-  name_prefix   = "web-app-"
-  image_id               = data.aws_ami.amazon_linux.id
-  instance_type          = "t2.micro"
-  vpc_security_group_ids = [aws_security_group.group_from_elb.id]
-  user_data              = filebase64("${path.module}/user_data.sh")
+resource "aws_launch_template" "app_template" {
+  name_prefix   = "web-server-"
+  image_id      = data.aws_ami.amazon_linux.id
+  instance_type = "t2.micro"
+  // vpc_security_group_ids = [aws_security_group.elb_sg.id]
+  key_name = "terraform_key"
+  network_interfaces {
+    associate_public_ip_address = true
+    security_groups             = [aws_security_group.elb_sg.id]
+  }
+  user_data = filebase64("${path.module}/user_data.sh")
+
+  tag_specifications {
+    resource_type = "instance"
+    tags = {
+      Name    = "WebServerInstance"
+      Project = "Practice AWS"
+    }
+  }
 }
 
 #-----------------------------------------------------------
@@ -153,23 +178,23 @@ resource "aws_launch_template" "web_app_template" {
 #-----------------------------------------------------------
 
 resource "aws_autoscaling_group" "web" {
-  name                = "WebServer-ASG"
-  min_size            = 2
-  max_size            = 2
-  desired_capacity    = 2
-  health_check_type   = "ELB"
+  name                      = "WebServer-ASG"
+  min_size                  = 2
+  max_size                  = 2
+  desired_capacity          = 2
+  health_check_type         = "ELB"
   health_check_grace_period = 300
-  vpc_zone_identifier  = [aws_subnet.subnet_yellow.id, aws_subnet.subnet_red.id]
-  target_group_arns   = [aws_lb_target_group.app_tg.arn]
+  vpc_zone_identifier       = [aws_subnet.subnet_yellow.id, aws_subnet.subnet_red.id]
+  target_group_arns         = [aws_lb_target_group.app_tg.arn]
 
   launch_template {
-    id      = aws_launch_template.web_app_template.id
-    version = aws_launch_template.web_app_template.latest_version
+    id      = aws_launch_template.app_template.id
+    version = aws_launch_template.app_template.latest_version
   }
 
   dynamic "tag" {
     for_each = {
-      Name   = "WebServer in ASG-v${aws_launch_template.web_app_template.latest_version}"
+      Name   = "application-v${aws_launch_template.app_template.latest_version}"
       TAGKEY = "TAGVALUE"
     }
     content {
@@ -178,6 +203,7 @@ resource "aws_autoscaling_group" "web" {
       propagate_at_launch = true
     }
   }
+
   lifecycle {
     create_before_destroy = true
   }

@@ -16,7 +16,7 @@ variable "common_tags" {
     Project     = "Practice AWS"
     Owner       = "Babich Andrey"
     Environment = "Development"
-    CreatedBy = "Terraform"
+    CreatedBy   = "Terraform"
   }
 }
 
@@ -40,7 +40,7 @@ variable "subnet_two" {
 
 variable "cidr_block_all" {
   description = "Any address"
-  default = "0.0.0.0/0"
+  default     = "0.0.0.0/0"
 }
 
 variable "my_ip" {
